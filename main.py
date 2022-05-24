@@ -15,7 +15,7 @@ def start(message):
 
 @bot.message_handler(commands=['elo'])
 def elo(message):
-    if (len(message.text)<5 or message.text.count(' ') == 0):
+    if (len(message.text)<6 or message.text.count(' ') == 0):
         bot.send_message(message.chat.id, "Please follow the form:\n<b>/elo FaceitNickname</b>", parse_mode='html')
     else:
         user_name = message.text[5:]
