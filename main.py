@@ -1,8 +1,6 @@
 import telebot
 import requests
-
-tel_API = "5329906325:AAH8pfRyRHvdpYcZvvFUvvgwbyHLUCFzmRM"
-faceit_API = "ab021e23-0297-4052-8094-751f00896b81"
+from config import tel_API, faceit_API, db_URI
 
 match_id_example = '1-1f4bb450-998d-45f2-a664-6b850f271c51'
 
@@ -27,8 +25,4 @@ def elo(message):
         else:
             bot.send_message(message.chat.id, "<b>404</b> <i>Not Found</i>", parse_mode='html')
 
-
-
 bot.polling(none_stop=True)
-
-# user_name, nickname, elo, matches to database
