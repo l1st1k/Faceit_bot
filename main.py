@@ -5,7 +5,6 @@ from config import tel_API, faceit_API, db_URI
 
 match_id_example = '1-1f4bb450-998d-45f2-a664-6b850f271c51'
 
-# Telegram part
 bot = telebot.TeleBot(tel_API)
 headers = {"Authorization": f"Bearer {faceit_API}", "accept": "application/json"}
 
@@ -44,40 +43,43 @@ def set_elo(username, user_elo):
 
 @bot.message_handler(commands=['connect'])
 def connect(message):
-    db_connection = psycopg2.connect(db_URI, sslmode="require")
-    db_object = db_connection.cursor()
-    username = message.from_user.username
-    nickname = message.text[9:].strip()
-    response = requests.get(f"https://open.faceit.com/data/v4/players?nickname={nickname}", headers=headers)
-    if response.status_code == 200:
-        user_elo = response.json()["games"]["csgo"]["faceit_elo"]
-        db_object.execute(f"SELECT username, nickname FROM main_table WHERE username ='{username}'")
-        result = db_object.fetchone()
-        if not result:
-            db_object.execute("INSERT INTO main_table (username, nickname, elo) VALUES (%s, %s, %s)",
-                              (username, nickname, user_elo))
-            db_connection.commit()
-            bot.send_message(message.chat.id,
-                             'Successfully connected!\nNow you can use /elo & /stats without rewriting your nickname!')
-        elif result[0] == username and result[1] == nickname:
-            bot.send_message(message.chat.id, 'This player is already connected to your telegram!')
-        else:
-            db_object.execute(
-                f"UPDATE main_table SET nickname = '{nickname}', elo = {user_elo} WHERE username ='{username}'")
-            db_connection.commit()
-            bot.send_message(message.chat.id,
-                             'Successfully connected!\nNow you can use /elo & /stats without rewriting your nickname!')
+    if message.text.strip() == '/connect':
+        bot.send_message(message.chat.id, "Please follow the form:\n<b>/connect FaceitNickname</b>", parse_mode='html')
     else:
-        bot.send_message(message.chat.id, "<b>404</b> <i>Not Found</i>\n<i>Probably incorrect faceit nickname</i>",
-                         parse_mode='html')
+        db_connection = psycopg2.connect(db_URI, sslmode="require")
+        db_object = db_connection.cursor()
+        username = message.from_user.username
+        nickname = message.text[9:].strip()
+        response = requests.get(f"https://open.faceit.com/data/v4/players?nickname={nickname}", headers=headers)
+        if response.status_code == 200:
+            user_elo = response.json()["games"]["csgo"]["faceit_elo"]
+            db_object.execute(f"SELECT username, nickname FROM main_table WHERE username ='{username}'")
+            result = db_object.fetchone()
+            if not result:
+                db_object.execute("INSERT INTO main_table (username, nickname, elo) VALUES (%s, %s, %s)",
+                                  (username, nickname, user_elo))
+                db_connection.commit()
+                bot.send_message(message.chat.id,
+                                 'Successfully connected!\nNow you can use /elo & /stats without rewriting your nickname!')
+            elif result[0] == username and result[1] == nickname:
+                bot.send_message(message.chat.id, 'This player is already connected to your telegram!')
+            else:
+                db_object.execute(
+                    f"UPDATE main_table SET nickname = '{nickname}', elo = {user_elo} WHERE username ='{username}'")
+                db_connection.commit()
+                bot.send_message(message.chat.id,
+                                 'Successfully connected!\nNow you can use /elo & /stats without rewriting your nickname!')
+        else:
+            bot.send_message(message.chat.id, "<b>404</b> <i>Not Found</i>\n<i>Probably incorrect faceit nickname</i>",
+                             parse_mode='html')
 
-    db_object.close()
-    db_connection.close()
+        db_object.close()
+        db_connection.close()
 
 
 @bot.message_handler(commands=['start', 'help'])
 def start(message):
-    bot.send_message(message.chat.id, 'Privet')
+    bot.send_message(message.chat.id, f"chat_id:{message.chat.id}")
 
 
 @bot.message_handler(commands=['elo'])
@@ -119,4 +121,48 @@ def elo(message):
                 bot.send_message(message.chat.id, "<b>404</b> <i>Not Found</i>", parse_mode='html')
 
 
-bot.polling(none_stop=True)
+@bot.message_handler(func=lambda message: message.text == 'elo', content_types=['text'])
+def elo_txt(message):
+    if user_is_in_db(message.from_user.username):
+        nickname = get_nickname(message.from_user.username)
+        response = requests.get(f"https://open.faceit.com/data/v4/players?nickname={nickname}", headers=headers)
+        if response.status_code == 200:
+            user_elo = response.json()["games"]["csgo"]["faceit_elo"]
+            user_level = response.json()["games"]["csgo"]["skill_level"]
+            bot.send_message(message.chat.id, f'Player: {nickname}\nelo: {user_elo}\nlevel: {user_level}')
+            set_elo(message.from_user.username, user_elo)
+        else:
+            bot.send_message(message.chat.id, "<i>Unexpected error</i>", parse_mode='html')
+    else:
+        bot.send_message(message.chat.id,
+                         "<i>You need to /connect your Faceit account previously</i>", parse_mode='html')
+
+
+bot.infinity_polling()
+
+
+def update():
+    db_connection = psycopg2.connect(db_URI, sslmode="require")
+    db_object = db_connection.cursor()
+    db_object.execute(f"SELECT nickname, elo, chat_id FROM main_table")
+    result = db_object.fetchall()
+    for user in result:
+        response = requests.get(f"https://open.faceit.com/data/v4/players?nickname={user[0]}", headers=headers)
+        user_elo = response.json()["games"]["csgo"]["faceit_elo"]
+        if user[1] != user_elo:
+            diff = user_elo - user[1]
+            db_object.execute(
+                f"UPDATE main_table SET elo = '{user_elo}' WHERE nickname ='{user[0]}'")
+            db_connection.commit()
+            if diff > 0:
+                bot.send_message(user[2],
+                                 f"<u>Elo updates:</u>\n<b>+{diff} elo</b>\n<i>Current elo: {user_elo}</i>\nGG",
+                                 parse_mode='html')
+            else:
+
+                bot.send_message(user[2],
+                                 f"<u>Elo updates:</u>\n<b>-{abs(diff)} elo</b>\n<i>Current elo: {user_elo}</i>\nGG",
+                                 parse_mode='html')
+
+    db_object.close()
+    db_connection.close()
