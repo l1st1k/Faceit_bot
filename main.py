@@ -56,8 +56,8 @@ def connect(message):
             db_object.execute(f"SELECT username, nickname FROM main_table WHERE username ='{username}'")
             result = db_object.fetchone()
             if not result:
-                db_object.execute("INSERT INTO main_table (username, nickname, elo) VALUES (%s, %s, %s)",
-                                  (username, nickname, user_elo))
+                db_object.execute("INSERT INTO main_table (username, nickname, elo, chat_id) VALUES (%s, %s, %s, %s)",
+                                  (username, nickname, user_elo, message.chat.id))
                 db_connection.commit()
                 bot.send_message(message.chat.id,
                                  'Successfully connected!\nNow you can use /elo & /stats without rewriting your nickname!')
@@ -77,9 +77,7 @@ def connect(message):
         db_connection.close()
 
 
-@bot.message_handler(commands=['start', 'help'])
-def start(message):
-    bot.send_message(message.chat.id, f"chat_id:{message.chat.id}")
+
 
 
 @bot.message_handler(commands=['elo'])
@@ -156,13 +154,19 @@ def update():
             db_connection.commit()
             if diff > 0:
                 bot.send_message(user[2],
-                                 f"<u>Elo updates:</u>\n<b>+{diff} elo</b>\n<i>Current elo: {user_elo}</i>\nGG",
+                                 f"<b>+{diff} elo</b>\n<i>Current elo: {user_elo}</i>\nGG",
                                  parse_mode='html')
             else:
-
+                #user[2] should be chat_id
                 bot.send_message(user[2],
-                                 f"<u>Elo updates:</u>\n<b>-{abs(diff)} elo</b>\n<i>Current elo: {user_elo}</i>\nGG",
+                                 f"<b>-{abs(diff)} elo</b>\nCurrent elo: {user_elo}\nGG",
                                  parse_mode='html')
 
     db_object.close()
     db_connection.close()
+
+
+
+@bot.message_handler(commands=['start', 'help'])
+def start(message):
+    pass
