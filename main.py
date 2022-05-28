@@ -1,13 +1,13 @@
 import telebot
 import requests
 import psycopg2
+import time
 from config import tel_API, faceit_API, db_URI
 
 match_id_example = '1-1f4bb450-998d-45f2-a664-6b850f271c51'
 
 bot = telebot.TeleBot(tel_API)
 headers = {"Authorization": f"Bearer {faceit_API}", "accept": "application/json"}
-
 
 def user_is_in_db(username):
     db_connection = psycopg2.connect(db_URI, sslmode="require")
@@ -39,6 +39,11 @@ def set_elo(username, user_elo):
     db_connection.commit()
     db_object.close()
     db_connection.close()
+
+
+@bot.message_handler(commands=['start', 'help'])
+def start(message):
+    pass
 
 
 @bot.message_handler(commands=['connect'])
@@ -136,7 +141,6 @@ def elo_txt(message):
                          "<i>You need to /connect your Faceit account previously</i>", parse_mode='html')
 
 
-bot.infinity_polling()
 
 
 def update():
@@ -162,11 +166,13 @@ def update():
                                  f"<b>-{abs(diff)} elo</b>\nCurrent elo: {user_elo}\nGG",
                                  parse_mode='html')
 
+    print(time.time(), result[0][0])
     db_object.close()
     db_connection.close()
 
+while True:
+    update()
+    time.sleep(15)
 
 
-@bot.message_handler(commands=['start', 'help'])
-def start(message):
-    pass
+bot.infinity_polling()
