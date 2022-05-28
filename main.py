@@ -47,6 +47,12 @@ def start(message):
     pass
 
 
+@bot.message_handler(commands=['levels'])
+def levels(message):
+    photo = open('faceit_elo.png', 'rb')
+    bot.send_photo(message.chat.id, photo)
+
+
 @bot.message_handler(commands=['connect'])
 def connect(message):
     if message.text.strip() == '/connect':
