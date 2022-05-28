@@ -1,7 +1,8 @@
 import telebot
 import requests
 import psycopg2
-import time
+import threading
+
 from config import tel_API, faceit_API, db_URI
 
 match_id_example = '1-1f4bb450-998d-45f2-a664-6b850f271c51'
@@ -124,7 +125,7 @@ def elo(message):
                 bot.send_message(message.chat.id, "<b>404</b> <i>Not Found</i>", parse_mode='html')
 
 
-@bot.message_handler(func=lambda message: message.text == 'elo', content_types=['text'])
+@bot.message_handler(func=lambda message: message.text.lower().strip() == 'elo', content_types=['text'])
 def elo_txt(message):
     if user_is_in_db(message.from_user.username):
         nickname = get_nickname(message.from_user.username)
@@ -144,6 +145,7 @@ def elo_txt(message):
 
 
 def update():
+    threading.Timer(20.0, update).start()
     db_connection = psycopg2.connect(db_URI, sslmode="require")
     db_object = db_connection.cursor()
     db_object.execute(f"SELECT nickname, elo, chat_id FROM main_table")
@@ -151,6 +153,7 @@ def update():
     for user in result:
         response = requests.get(f"https://open.faceit.com/data/v4/players?nickname={user[0]}", headers=headers)
         user_elo = response.json()["games"]["csgo"]["faceit_elo"]
+        user_level = response.json()["games"]["csgo"]["skill_level"]
         if user[1] != user_elo:
             diff = user_elo - user[1]
             db_object.execute(
@@ -158,21 +161,18 @@ def update():
             db_connection.commit()
             if diff > 0:
                 bot.send_message(user[2],
-                                 f"<b>+{diff} elo</b>\n<i>Current elo: {user_elo}</i>\nGG",
+                                 f"<b>+{diff} elo</b>\n{user[1]} -> {user_elo} ({user_level} lvl)",
                                  parse_mode='html')
             else:
                 #user[2] should be chat_id
                 bot.send_message(user[2],
-                                 f"<b>-{abs(diff)} elo</b>\nCurrent elo: {user_elo}\nGG",
+                                 f"<b>-{abs(diff)} elo</b>\n{user[1]} -> {user_elo} ({user_level} lvl)",
                                  parse_mode='html')
 
-    print(time.time(), result[0][0])
     db_object.close()
     db_connection.close()
 
-while True:
-    update()
-    time.sleep(15)
 
+update()
 
-bot.infinity_polling()
+bot.polling(none_stop=True)
