@@ -10,6 +10,7 @@ match_id_example = '1-1f4bb450-998d-45f2-a664-6b850f271c51'
 bot = telebot.TeleBot(tel_API)
 headers = {"Authorization": f"Bearer {faceit_API}", "accept": "application/json"}
 
+
 def user_is_in_db(username):
     db_connection = psycopg2.connect(db_URI, sslmode="require")
     db_object = db_connection.cursor()
@@ -89,9 +90,6 @@ def connect(message):
         db_connection.close()
 
 
-
-
-
 @bot.message_handler(commands=['elo'])
 def elo(message):
     if not user_is_in_db(message.from_user.username):
@@ -148,6 +146,108 @@ def elo_txt(message):
                          "<i>You need to /connect your Faceit account previously</i>", parse_mode='html')
 
 
+@bot.message_handler(func=lambda message: message.text.lower().strip() == 'stats', content_types=['text'])
+def stats_txt(message):
+    if user_is_in_db(message.from_user.username):
+        nickname = get_nickname(message.from_user.username)
+        response = requests.get(f"https://open.faceit.com/data/v4/players?nickname={nickname}", headers=headers)
+        if response.status_code == 200:
+            user_elo = response.json()["games"]["csgo"]["faceit_elo"]
+            user_level = response.json()["games"]["csgo"]["skill_level"]
+            player_id = response.json()["player_id"]
+            response = requests.get(f"https://open.faceit.com/data/v4/players/{player_id}/stats/csgo",
+                                    headers=headers)
+            if response.status_code == 200:
+                kd = response.json()["lifetime"]["Average K/D Ratio"]
+                win_rate = response.json()["lifetime"]["Win Rate %"]
+                matches = response.json()["lifetime"]["Matches"]
+                current_streak = response.json()["lifetime"]["Current Win Streak"]
+                avg_headshots = response.json()["lifetime"]["Average Headshots %"]
+                bot.send_message(message.chat.id,
+                                 f'Player: {nickname}\nElo: {user_elo}\nLevel: {user_level}\nMatches: {matches}\nK/D: {kd}\nWin rate: {win_rate}%\nAverage HS: {avg_headshots}%\nCurrent streak: {current_streak}')
+                set_elo(message.from_user.username, user_elo)
+            else:
+                bot.send_message(message.chat.id, "<i>Unexpected error</i>", parse_mode='html')
+        else:
+            bot.send_message(message.chat.id, "<i>Unexpected error</i>", parse_mode='html')
+    else:
+        bot.send_message(message.chat.id,
+                         "<i>You need to /connect your Faceit account previously</i>", parse_mode='html')
+
+
+@bot.message_handler(commands=['stats'])
+def stats(message):
+    if not user_is_in_db(message.from_user.username):
+        if len(message.text) < 8 or message.text.count(' ') == 0:
+            bot.send_message(message.chat.id, "Please follow the form:\n<b>/stats FaceitNickname</b>", parse_mode='html')
+        else:
+            nickname = message.text[7:].strip()
+            response = requests.get(f"https://open.faceit.com/data/v4/players?nickname={nickname}", headers=headers)
+            if response.status_code == 200:
+                user_elo = response.json()["games"]["csgo"]["faceit_elo"]
+                user_level = response.json()["games"]["csgo"]["skill_level"]
+                player_id = response.json()["player_id"]
+                response = requests.get(f"https://open.faceit.com/data/v4/players/{player_id}/stats/csgo",
+                                        headers=headers)
+                if response.status_code == 200:
+                    kd = response.json()["lifetime"]["Average K/D Ratio"]
+                    win_rate = response.json()["lifetime"]["Win Rate %"]
+                    matches = response.json()["lifetime"]["Matches"]
+                    current_streak = response.json()["lifetime"]["Current Win Streak"]
+                    avg_headshots = response.json()["lifetime"]["Average Headshots %"]
+                    bot.send_message(message.chat.id,
+                                     f'Player: {nickname}\nElo: {user_elo}\nLevel: {user_level}\nMatches: {matches}\nK/D: {kd}\nWin rate: {win_rate}%\nAverage HS: {avg_headshots}%\nCurrent streak: {current_streak}')
+                else:
+                    bot.send_message(message.chat.id, "<i>Unexpected error</i>", parse_mode='html')
+            else:
+                bot.send_message(message.chat.id, "<i>Unexpected error</i>", parse_mode='html')
+    else:
+        if len(message.text) < 8:
+            nickname = get_nickname(message.from_user.username)
+            response = requests.get(f"https://open.faceit.com/data/v4/players?nickname={nickname}", headers=headers)
+            if response.status_code == 200:
+                user_elo = response.json()["games"]["csgo"]["faceit_elo"]
+                user_level = response.json()["games"]["csgo"]["skill_level"]
+                player_id = response.json()["player_id"]
+                response = requests.get(f"https://open.faceit.com/data/v4/players/{player_id}/stats/csgo",
+                                        headers=headers)
+                if response.status_code == 200:
+                    kd = response.json()["lifetime"]["Average K/D Ratio"]
+                    win_rate = response.json()["lifetime"]["Win Rate %"]
+                    matches = response.json()["lifetime"]["Matches"]
+                    current_streak = response.json()["lifetime"]["Current Win Streak"]
+                    avg_headshots = response.json()["lifetime"]["Average Headshots %"]
+                    bot.send_message(message.chat.id,
+                                     f'Player: {nickname}\nElo: {user_elo}\nLevel: {user_level}\nMatches: {matches}\nK/D: {kd}\nWin rate: {win_rate}%\nAverage HS: {avg_headshots}%\nCurrent streak: {current_streak}')
+                    set_elo(message.from_user.username, user_elo)
+                else:
+                    bot.send_message(message.chat.id, "<i>Unexpected error</i>", parse_mode='html')
+            else:
+                bot.send_message(message.chat.id, "<i>Unexpected error</i>", parse_mode='html')
+
+        elif message.text.count(' ') == 0:
+            bot.send_message(message.chat.id, "Please follow the form:\n<b>/stats FaceitNickname</b>", parse_mode='html')
+        else:
+            nickname = message.text[7:].strip()
+            response = requests.get(f"https://open.faceit.com/data/v4/players?nickname={nickname}", headers=headers)
+            if response.status_code == 200:
+                user_elo = response.json()["games"]["csgo"]["faceit_elo"]
+                user_level = response.json()["games"]["csgo"]["skill_level"]
+                player_id = response.json()["player_id"]
+                response = requests.get(f"https://open.faceit.com/data/v4/players/{player_id}/stats/csgo",
+                                        headers=headers)
+                if response.status_code == 200:
+                    kd = response.json()["lifetime"]["Average K/D Ratio"]
+                    win_rate = response.json()["lifetime"]["Win Rate %"]
+                    matches = response.json()["lifetime"]["Matches"]
+                    current_streak = response.json()["lifetime"]["Current Win Streak"]
+                    avg_headshots = response.json()["lifetime"]["Average Headshots %"]
+                    bot.send_message(message.chat.id,
+                                     f'Player: {nickname}\nElo: {user_elo}\nLevel: {user_level}\nMatches: {matches}\nK/D: {kd}\nWin rate: {win_rate}%\nAverage HS: {avg_headshots}%\nCurrent streak: {current_streak}')
+                else:
+                    bot.send_message(message.chat.id, "<i>Unexpected error</i>", parse_mode='html')
+            else:
+                bot.send_message(message.chat.id, "<i>Unexpected error</i>", parse_mode='html')
 
 
 def update():
@@ -170,7 +270,7 @@ def update():
                                  f"<b>+{diff} elo</b>\n{user[1]} -> {user_elo} ({user_level} lvl)",
                                  parse_mode='html')
             else:
-                #user[2] should be chat_id
+                # user[2] should be chat_id
                 bot.send_message(user[2],
                                  f"<b>-{abs(diff)} elo</b>\n{user[1]} -> {user_elo} ({user_level} lvl)",
                                  parse_mode='html')
