@@ -280,19 +280,25 @@ def update():
         user_level = response.json()["games"]["csgo"]["skill_level"]
         if user[1] != user_elo:
             diff = user_elo - user[1]
-            print (user[2])
             db_object.execute(
                 f"UPDATE main_table SET elo = '{user_elo}' WHERE nickname ='{user[0]}'") #AND chat_id = user[2]
             db_connection.commit()
-            if diff > 0:
-                bot.send_message(user[2],
-                                 f"<b>+{diff} elo</b>\n{user[1]} -> {user_elo} ({user_level} lvl)",
-                                 parse_mode='html')
-            else:
-                # user[2] should be chat_id
-                bot.send_message(user[2],
-                                 f"<b>-{abs(diff)} elo</b>\n{user[1]} -> {user_elo} ({user_level} lvl)",
-                                 parse_mode='html')
+            try:
+                if diff > 0:
+                    bot.send_message(user[2],
+                                     f"<b>+{diff} elo</b>\n{user[1]} -> {user_elo} ({user_level} lvl)",
+                                     parse_mode='html')
+                else:
+                    # user[2] should be chat_id
+                    bot.send_message(user[2],
+                                     f"<b>-{abs(diff)} elo</b>\n{user[1]} -> {user_elo} ({user_level} lvl)",
+                                     parse_mode='html')
+            except telebot.apihelper.ApiTelegramException as e:
+                if (e.result_json['error_code'] == 403):
+                    db_object.execute(f"DELETE FROM main_table WHERE chat_id = {user[2]}")
+                    db_connection.commit()
+
+
 
     db_object.close()
     db_connection.close()
