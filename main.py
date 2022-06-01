@@ -45,7 +45,25 @@ def set_elo(username, user_elo):
 
 @bot.message_handler(commands=['start', 'help'])
 def start(message):
-    pass
+    bot.send_message(message.chat.id, "<i>Welcome to the club, Buddy</i>", parse_mode='html')
+
+
+@bot.message_handler(commands=['disconnect'])
+def disconnect(message):
+    if user_is_in_db(message.from_user.username):
+        db_connection = psycopg2.connect(db_URI, sslmode="require")
+        db_object = db_connection.cursor()
+        db_object.execute(f"DELETE FROM main_table WHERE username ='{message.from_user.username}'")
+        bot.send_message(message.chat.id,
+                         "Successfully disconnected!\nYou'll no longer be notified.",
+                         parse_mode='html')
+        db_connection.commit()
+        db_object.close()
+        db_connection.close()
+    else:
+        bot.send_message(message.chat.id,
+                         "You are not connected now!\nUse /connect to connect to your Faceit account",
+                         parse_mode='html')
 
 
 @bot.message_handler(commands=['levels'])
@@ -262,8 +280,9 @@ def update():
         user_level = response.json()["games"]["csgo"]["skill_level"]
         if user[1] != user_elo:
             diff = user_elo - user[1]
+            print (user[2])
             db_object.execute(
-                f"UPDATE main_table SET elo = '{user_elo}' WHERE nickname ='{user[0]}'")
+                f"UPDATE main_table SET elo = '{user_elo}' WHERE nickname ='{user[0]}'") #AND chat_id = user[2]
             db_connection.commit()
             if diff > 0:
                 bot.send_message(user[2],
